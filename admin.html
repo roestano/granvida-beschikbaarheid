@@ -148,6 +148,8 @@
     });
 
     document.getElementById('sendInviteBtn').addEventListener('click', async () => {
+      const sendBtn = document.getElementById('sendInviteBtn');
+      if (sendBtn.disabled) return; // voorkomt dubbele uitnodiging bij dubbelklik
       const errorBox = document.getElementById('inviteError');
       errorBox.innerHTML = '';
       const voornaam = document.getElementById('inviteVoornaam').value;
@@ -158,6 +160,8 @@
         errorBox.innerHTML = '<div class="gv-error">Voornaam, achternaam en e-mail zijn verplicht.</div>';
         return;
       }
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Versturen...';
       try {
         const result = await postAction('invite', { token, voornaam, achternaam, email, locatie });
         if (!result.ok) throw new Error(result.error);
@@ -170,6 +174,9 @@
         render();
       } catch (err) {
         errorBox.innerHTML = `<div class="gv-error">Versturen mislukt: ${err.message}</div>`;
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Uitnodiging versturen';
       }
     });
 
@@ -271,8 +278,11 @@
     }
 
     document.getElementById('assignBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('assignBtn');
+      if (btn.disabled) return; // voorkomt dubbele aanroep bij dubbelklik
       const ids = Array.from(selectedIds);
       if (!ids.length) return;
+      btn.disabled = true;
       try {
         const result = await postAction('markAssigned', { token, ids: ids.join(',') });
         if (!result.ok) throw new Error(result.error || 'Onbekende fout');
@@ -282,6 +292,7 @@
         render();
       } catch (err) {
         alert('Groep definitief maken is mislukt: ' + err.message + '. Probeer het opnieuw.');
+        btn.disabled = false;
       }
     });
   </script>
