@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gran Vida — Admin</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Almarai:wght@400;700;800&display=swap">
+  <link rel="stylesheet" href="assets/style.css">
+  <style>
+    body { padding: 40px; }
+    .admin-wrap { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-family: 'Almarai', sans-serif; font-size: 10.5px; font-weight: 800;
+      letter-spacing: 0.06em; text-transform: uppercase; color: #8a8070; padding: 10px 14px; border-bottom: 1px solid #ECE6DA; }
+    td { padding: 12px 14px; font-size: 13.5px; border-bottom: 1px solid #F1ECE1; }
+    .chip { font-family: 'Almarai', sans-serif; font-size: 13px; font-weight: 700; padding: 8px 16px;
+      border-radius: 20px; border: 1px solid #ddd4c2; background: #FFFFFF; cursor: pointer; }
+    .chip.active { background: #221F1A; color: #FAF8F4; border-color: #221F1A; }
+  </style>
+</head>
+<body>
+  <div class="admin-wrap" id="loginView">
+    <div class="gv-card" style="max-width:360px;">
+      <div class="gv-h2">Admin — inloggen</div>
+      <input class="gv-input" type="password" id="tokenInput" placeholder="Token">
+      <button class="gv-btn" id="loginBtn">Inloggen</button>
+      <div id="loginError"></div>
+    </div>
+  </div>
+
+  <div class="admin-wrap" id="dashboardView" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <h1 class="gv-h1">Open inzendingen</h1>
+      <button class="gv-btn-secondary gv-btn" style="width:auto;" id="showInviteBtn">+ Nieuwe deelnemer uitnodigen</button>
+    </div>
+
+    <div id="inviteCard" class="gv-card" style="display:none;max-width:480px;">
+      <div class="gv-h2">Nieuwe deelnemer uitnodigen</div>
+      <input class="gv-input" id="inviteVoornaam" placeholder="Voornaam">
+      <input class="gv-input" id="inviteAchternaam" placeholder="Achternaam">
+      <input class="gv-input" id="inviteEmail" type="email" placeholder="E-mail">
+      <select class="gv-input" id="inviteLocatie"></select>
+      <button class="gv-btn" id="sendInviteBtn">Uitnodiging versturen</button>
+      <div id="inviteError"></div>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div class="chip active" data-locatie="">Alle locaties</div>
+      <div id="locatieChips" style="display:flex;gap:10px;"></div>
+      <div style="flex:1;"></div>
+      <div id="statusSummary" style="font-size:12.5px;color:#8a8070;font-weight:700;"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:24px;align-items:start;">
+      <div class="gv-card" style="padding:0;">
+        <table>
+          <thead><tr><th></th><th>Naam</th><th>Locatie(s)</th><th>Status</th><th>Datum</th><th></th></tr></thead>
+          <tbody id="rowsBody"></tbody>
+        </table>
+      </div>
+
+      <div class="gv-card">
+        <div class="gv-eyebrow">Meeste overlap</div>
+        <p id="overlapHint" style="margin:0;font-size:12.5px;color:#8a8070;">Selecteer inzendingen om de overlap te zien.</p>
+        <div id="overlapList" style="display:flex;flex-direction:column;gap:10px;"></div>
+        <button class="gv-btn" id="assignBtn" style="margin-top:4px;" disabled>Groep definitief maken</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+  <script>
+    let token = '';
+    let allRows = [];
+    let locatieFilter = '';
+    const selectedIds = new Set();
+
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      token = document.getElementById('tokenInput').value;
+      const errorBox = document.getElementById('loginError');
+      errorBox.innerHTML = '';
+      try {
+        const data = await getAdminData(token);
+        if (!data.ok) throw new Error('Ongeldig token');
+        allRows = data.rows;
+        document.getElementById('loginView').style.display = 'none';
+        document.getElementById('dashboardView').style.display = 'flex';
+        setupLocationUI();
+        render();
+      } catch (err) {
+        errorBox.innerHTML = '<div class="gv-error">Inloggen mislukt — controleer het token.</div>';
+      }
+    });
+
+    function setupLocationUI() {
+      const chips = document.getElementById('locatieChips');
+      const select = document.getElementById('inviteLocatie');
+      LOCATIONS.forEach(loc => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.textContent = loc.split(',')[0];
+        chip.addEventListener('click', () => {
+          locatieFilter = loc;
+          document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          render();
+        });
+        chips.appendChild(chip);
+
+        const opt = document.createElement('option');
+        opt.value = loc; opt.textContent = loc;
+        select.appendChild(opt);
+      });
+      document.querySelector('.chip[data-locatie=""]').addEventListener('click', function () {
+        locatieFilter = '';
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        this.classList.add('active');
+        render();
+      });
+    }
+
+    document.getElementById('showInviteBtn').addEventListener('click', () => {
+      const card = document.getElementById('inviteCard');
+      card.style.display = card.style.display === 'none' ? 'flex' : 'none';
+    });
+
+    document.getElementById('sendInviteBtn').addEventListener('click', async () => {
+      const errorBox = document.getElementById('inviteError');
+      errorBox.innerHTML = '';
+      const voornaam = document.getElementById('inviteVoornaam').value;
+      const achternaam = document.getElementById('inviteAchternaam').value;
+      const email = document.getElementById('inviteEmail').value;
+      const locatie = document.getElementById('inviteLocatie').value;
+      if (!voornaam || !achternaam || !email) {
+        errorBox.innerHTML = '<div class="gv-error">Voornaam, achternaam en e-mail zijn verplicht.</div>';
+        return;
+      }
+      try {
+        const result = await postAction('invite', { token, voornaam, achternaam, email, locatie });
+        if (!result.ok) throw new Error(result.error);
+        document.getElementById('inviteVoornaam').value = '';
+        document.getElementById('inviteAchternaam').value = '';
+        document.getElementById('inviteEmail').value = '';
+        document.getElementById('inviteCard').style.display = 'none';
+        const data = await getAdminData(token);
+        allRows = data.rows;
+        render();
+      } catch (err) {
+        errorBox.innerHTML = `<div class="gv-error">Versturen mislukt: ${err.message}</div>`;
+      }
+    });
+
+    function filteredRows() {
+      return locatieFilter
+        ? allRows.filter(r => (r.locaties || '').includes(locatieFilter))
+        : allRows;
+    }
+
+    function render() {
+      const rows = filteredRows();
+      const tbody = document.getElementById('rowsBody');
+      tbody.innerHTML = '';
+
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const statusClass = r.status === 'open' ? 'gv-status-open'
+          : r.status === 'uitgenodigd' ? 'gv-status-uitgenodigd' : 'gv-status-ingedeeld';
+        const statusLabel = r.status === 'open' ? 'Open' : r.status === 'uitgenodigd' ? 'Uitgenodigd' : 'Ingedeeld';
+        const checkboxCell = r.status === 'open'
+          ? `<input type="checkbox" data-id="${r.id}" ${selectedIds.has(r.id) ? 'checked' : ''}>`
+          : '';
+        const actionCell = r.status === 'uitgenodigd'
+          ? `<button class="gv-btn-secondary gv-btn" style="width:auto;padding:6px 12px;font-size:11.5px;" data-remind="${r.id}">Stuur herinnering</button>`
+          : '';
+        const datum = r.status === 'uitgenodigd' ? r.timestamp_uitnodiging : r.invuldatum;
+        tr.innerHTML = `<td>${checkboxCell}</td><td style="font-weight:700;">${r.voornaam} ${r.achternaam}</td>
+          <td>${r.locaties || ''}</td><td><span class="${statusClass}">${statusLabel}</span></td>
+          <td style="font-size:12px;color:#8a8070;">${datum || ''}</td><td>${actionCell}</td>`;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          if (cb.checked) selectedIds.add(cb.dataset.id); else selectedIds.delete(cb.dataset.id);
+          renderOverlap();
+        });
+      });
+      tbody.querySelectorAll('[data-remind]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true; btn.textContent = 'Verzonden...';
+          await postAction('remind', { token, id: btn.dataset.remind });
+        });
+      });
+
+      const uitgenodigd = allRows.filter(r => r.status === 'uitgenodigd').length;
+      const open = allRows.filter(r => r.status === 'open').length;
+      document.getElementById('statusSummary').textContent =
+        `${open} open · ${uitgenodigd} uitgenodigd · ${selectedIds.size} geselecteerd`;
+
+      renderOverlap();
+    }
+
+    function renderOverlap() {
+      const selected = allRows.filter(r => selectedIds.has(r.id));
+      const overlapList = document.getElementById('overlapList');
+      const hint = document.getElementById('overlapHint');
+      const assignBtn = document.getElementById('assignBtn');
+      overlapList.innerHTML = '';
+
+      if (!selected.length) {
+        hint.textContent = 'Selecteer inzendingen om de overlap te zien.';
+        assignBtn.disabled = true;
+        return;
+      }
+      hint.textContent = `Berekend over de ${selected.length} geselecteerde inzendingen.`;
+
+      const counts = TIME_SLOTS.map(slot => ({
+        slot,
+        count: selected.filter(r => r[slot] === 'ja').length
+      })).sort((a, b) => b.count - a.count);
+
+      counts.forEach(({ slot, count }) => {
+        const pct = Math.round((count / selected.length) * 100);
+        const row = document.createElement('div');
+        row.innerHTML = `<div style="display:flex;justify-content:space-between;font-size:13.5px;">
+          <span>${slot}</span><span style="color:#8a8070;">${count} / ${selected.length}</span></div>
+          <div style="width:100%;height:5px;background:#ECE6DA;border-radius:3px;overflow:hidden;">
+          <div style="width:${pct}%;height:100%;background:#E8592A;"></div></div>`;
+        overlapList.appendChild(row);
+      });
+
+      assignBtn.disabled = false;
+    }
+
+    document.getElementById('assignBtn').addEventListener('click', async () => {
+      const ids = Array.from(selectedIds);
+      if (!ids.length) return;
+      const result = await postAction('markAssigned', { token, ids: ids.join(',') });
+      if (result.ok) {
+        selectedIds.clear();
+        const data = await getAdminData(token);
+        allRows = data.rows;
+        render();
+      }
+    });
+  </script>
+</body>
+</html>
