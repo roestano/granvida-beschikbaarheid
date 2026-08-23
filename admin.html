@@ -54,7 +54,7 @@
     <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:24px;align-items:start;">
       <div class="gv-card" style="padding:0;">
         <table>
-          <thead><tr><th></th><th>Naam</th><th>Locatie(s)</th><th>Status</th><th>Datum</th><th></th></tr></thead>
+          <thead><tr><th><input type="checkbox" id="selectAllOpen" title="Alles selecteren"></th><th>Naam</th><th>Locatie(s)</th><th>Status</th><th>Datum</th><th></th></tr></thead>
           <tbody id="rowsBody"></tbody>
         </table>
       </div>
@@ -78,6 +78,16 @@
     function esc(s) {
       return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
+
+    document.getElementById('selectAllOpen').addEventListener('change', (ev) => {
+      const openIds = filteredRows().filter(r => r.status === 'open').map(r => r.id);
+      if (ev.target.checked) {
+        openIds.forEach(id => selectedIds.add(id));
+      } else {
+        openIds.forEach(id => selectedIds.delete(id));
+      }
+      render();
+    });
 
     document.getElementById('loginBtn').addEventListener('click', async () => {
       token = document.getElementById('tokenInput').value;
@@ -209,6 +219,14 @@
       const open = allRows.filter(r => r.status === 'open').length;
       document.getElementById('statusSummary').textContent =
         `${open} open · ${uitgenodigd} uitgenodigd · ${selectedIds.size} geselecteerd`;
+
+      const openInView = rows.filter(r => r.status === 'open');
+      const selectAllCb = document.getElementById('selectAllOpen');
+      const allSelected = openInView.length > 0 && openInView.every(r => selectedIds.has(r.id));
+      const someSelected = openInView.some(r => selectedIds.has(r.id));
+      selectAllCb.checked = allSelected;
+      selectAllCb.indeterminate = !allSelected && someSelected;
+      selectAllCb.disabled = openInView.length === 0;
 
       renderOverlap();
     }
