@@ -80,9 +80,13 @@
       <label style="width:100%;border-top:1px solid #ECE6DA;padding-top:18px;display:flex;gap:12px;align-items:flex-start;text-align:left;cursor:pointer;">
         <input type="checkbox" id="optInCheckbox" style="margin-top:3px;">
         <span style="font-size:13px;color:#4a4438;line-height:1.55;">
-          Wil je er wekelijks een recept en inspiratie bij (video's, tips)? Ongeveer 1x per week, altijd af te melden.
+          Wil je er wekelijks een recept en inspiratie bij? Deze mails helpen je ook om je GLI-traject succesvol door te lopen — video's, tips en recepten, ongeveer 1x per week, altijd af te melden.
         </span>
       </label>
+      <div id="optInFeedback" style="display:none;align-items:center;gap:8px;font-size:12.5px;color:#3f6b3a;">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M4 7L6 9L10 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span id="optInFeedbackText"></span>
+      </div>
     </div>
   </div>
 
@@ -180,10 +184,18 @@
     });
 
     document.getElementById('optInCheckbox').addEventListener('change', async (ev) => {
+      const feedback = document.getElementById('optInFeedback');
+      const feedbackText = document.getElementById('optInFeedbackText');
       try {
-        await postAction('optIn', { id: currentId, waarde: ev.target.checked ? 'ja' : 'nee' });
+        const result = await postAction('optIn', { id: currentId, waarde: ev.target.checked ? 'ja' : 'nee' });
+        if (!result.ok) throw new Error(result.error || 'Onbekende fout');
+        feedback.style.color = '#3f6b3a';
+        feedbackText.textContent = ev.target.checked ? 'Opgeslagen — welkom bij de mails!' : 'Voorkeur bijgewerkt.';
+        feedback.style.display = 'flex';
       } catch (err) {
-        // stille fout — dit is een secundaire, niet-kritieke actie
+        feedback.style.color = '#a3341f';
+        feedbackText.textContent = 'Opslaan is niet gelukt, probeer het nog eens.';
+        feedback.style.display = 'flex';
       }
     });
   </script>
