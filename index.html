@@ -2,11 +2,188 @@
 <html lang="nl">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Gran Vida — Beschikbaarheid</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Almarai:wght@400;700;800&display=swap">
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-  <div class="gv-page"><p class="gv-eyebrow">Binnenkort beschikbaar</p></div>
+  <div class="gv-page" id="formView">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="gv-eyebrow">Gran Vida · GLI-intake</div>
+      <h1 class="gv-h1">Wanneer kun je meestal?</h1>
+      <p style="margin:0;font-size:15px;line-height:1.65;color:#4a4438;">
+        Geen zorgen over exacte data — we kijken naar een gemiddelde werkweek. De groep komt ongeveer
+        één keer per maand samen; zodra er genoeg mensen zijn op een moment dat past, plannen we een
+        vaste maandelijkse sessie voor je groep.
+      </p>
+    </div>
+
+    <div id="formError"></div>
+
+    <form id="beschikbaarheidForm">
+      <div class="gv-card">
+        <div class="gv-h2">Jouw gegevens</div>
+        <div>
+          <label class="gv-field-label">Voornaam *</label>
+          <input class="gv-input" name="voornaam" required>
+        </div>
+        <div>
+          <label class="gv-field-label">Achternaam *</label>
+          <input class="gv-input" name="achternaam" required>
+        </div>
+        <div>
+          <label class="gv-field-label">Meisjesnaam (optioneel)</label>
+          <input class="gv-input" name="meisjesnaam">
+        </div>
+        <div>
+          <label class="gv-field-label">E-mail *</label>
+          <input class="gv-input" type="email" name="email" required>
+        </div>
+        <div>
+          <label class="gv-field-label">Telefoon (optioneel)</label>
+          <input class="gv-input" name="telefoon">
+        </div>
+      </div>
+
+      <div class="gv-card" style="margin-top:14px;">
+        <div class="gv-h2">Locatie</div>
+        <p style="margin:0;font-size:12.5px;color:#756c5e;">Vink één locatie aan, of beide als je flexibel bent.</p>
+        <div id="locatieOpties" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+
+      <div class="gv-card" style="margin-top:14px;">
+        <div class="gv-h2">Wanneer kun je meestal?</div>
+        <p style="margin:0;font-size:12.5px;color:#756c5e;">Vink aan welke momenten doorgaans passen — géén specifieke datum, kantooruren op werkdagen.</p>
+        <div style="display:flex;gap:10px;align-items:flex-start;background:#FDF1EA;border-radius:3px;padding:12px 14px;">
+          <span style="font-size:12.5px;line-height:1.55;color:#4a4438;">
+            <strong>Tip:</strong> vink zo veel mogelijk momenten aan die passen. Hoe flexibeler je bent,
+            hoe groter de kans dat je snel kunt starten in de eerstvolgende groep. Je kunt dit later altijd nog aanpassen.
+          </span>
+        </div>
+        <div class="gv-rooster" id="roosterGrid"></div>
+      </div>
+
+      <button class="gv-btn" type="submit" style="margin-top:20px;">Versturen</button>
+    </form>
+  </div>
+
+  <div class="gv-page" id="confirmView" style="display:none;">
+    <div class="gv-card" style="align-items:center;text-align:center;gap:18px;">
+      <h1 class="gv-h1" id="confirmTitle">Bedankt!</h1>
+      <p style="margin:0;font-size:15px;line-height:1.65;color:#4a4438;">
+        Je beschikbaarheid is ontvangen. De groep komt ongeveer één keer per maand samen — zodra er
+        genoeg mensen zijn op een moment dat ook voor jou past, plannen we een vaste maandelijkse sessie
+        en nemen we contact met je op.
+      </p>
+      <label style="width:100%;border-top:1px solid #ECE6DA;padding-top:18px;display:flex;gap:12px;align-items:flex-start;text-align:left;cursor:pointer;">
+        <input type="checkbox" id="optInCheckbox" style="margin-top:3px;">
+        <span style="font-size:13px;color:#4a4438;line-height:1.55;">
+          Wil je er wekelijks een recept en inspiratie bij (video's, tips)? Ongeveer 1x per week, altijd af te melden.
+        </span>
+      </label>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    let currentId = params.get('id') || '';
+
+    // Locatie-checkboxen
+    const locatieOpties = document.getElementById('locatieOpties');
+    LOCATIONS.forEach((loc, i) => {
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;gap:10px;border:1px solid #ddd4c2;border-radius:3px;padding:12px 13px;cursor:pointer;';
+      label.innerHTML = `<input type="checkbox" name="locatie" value="${loc}"><span style="font-size:14px;">${loc}</span>`;
+      locatieOpties.appendChild(label);
+    });
+
+    // Roostergrid
+    const roosterGrid = document.getElementById('roosterGrid');
+    const days = ['Ma', 'Di', 'Wo', 'Do', 'Vr'];
+    roosterGrid.appendChild(document.createElement('div'));
+    days.forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'gv-rooster-day';
+      el.textContent = d;
+      roosterGrid.appendChild(el);
+    });
+    const slotLabels = ['09:00–10:30', '10:30–12:00', '13:30–15:00', '15:00–16:30'];
+    slotLabels.forEach((label, rowI) => {
+      const rowLabel = document.createElement('div');
+      rowLabel.style.cssText = 'display:flex;align-items:center;font-size:11px;color:#4a4438;';
+      rowLabel.textContent = label;
+      roosterGrid.appendChild(rowLabel);
+      days.forEach((d, colI) => {
+        const slot = TIME_SLOTS[colI * 4 + rowI];
+        const el = document.createElement('div');
+        el.className = 'gv-slot';
+        el.dataset.slot = slot;
+        el.addEventListener('click', () => el.classList.toggle('checked'));
+        roosterGrid.appendChild(el);
+      });
+    });
+
+    // Prefill vanuit uitnodigingslink
+    const form = document.getElementById('beschikbaarheidForm');
+    if (params.get('voornaam')) form.voornaam.value = params.get('voornaam');
+    if (params.get('achternaam')) form.achternaam.value = params.get('achternaam');
+    if (params.get('email')) form.email.value = params.get('email');
+
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const errorBox = document.getElementById('formError');
+      errorBox.innerHTML = '';
+
+      const locaties = Array.from(document.querySelectorAll('input[name="locatie"]:checked')).map(c => c.value);
+      const rooster = Array.from(document.querySelectorAll('.gv-slot.checked')).map(el => el.dataset.slot);
+
+      if (!locaties.length) {
+        errorBox.innerHTML = '<div class="gv-error">Kies minstens één locatie.</div>';
+        return;
+      }
+      if (!rooster.length) {
+        errorBox.innerHTML = '<div class="gv-error">Vink minstens één moment aan.</div>';
+        return;
+      }
+
+      const submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Versturen...';
+
+      try {
+        const result = await postAction('submit', {
+          id: currentId,
+          voornaam: form.voornaam.value,
+          achternaam: form.achternaam.value,
+          meisjesnaam: form.meisjesnaam.value,
+          email: form.email.value,
+          telefoon: form.telefoon.value,
+          locaties: locaties.join('|'),
+          rooster: rooster.join(',')
+        });
+
+        if (!result.ok) throw new Error(result.error || 'Onbekende fout');
+
+        currentId = result.id;
+        document.getElementById('confirmTitle').textContent = `Bedankt, ${form.voornaam.value}!`;
+        document.getElementById('formView').style.display = 'none';
+        document.getElementById('confirmView').style.display = 'flex';
+      } catch (err) {
+        errorBox.innerHTML = `<div class="gv-error">Het versturen is niet gelukt (${err.message}). Probeer het opnieuw, of mail rechtstreeks naar <a href="mailto:contact@granvida.nl">contact@granvida.nl</a>.</div>`;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Versturen';
+      }
+    });
+
+    document.getElementById('optInCheckbox').addEventListener('change', async (ev) => {
+      try {
+        await postAction('optIn', { id: currentId, waarde: ev.target.checked ? 'ja' : 'nee' });
+      } catch (err) {
+        // stille fout — dit is een secundaire, niet-kritieke actie
+      }
+    });
+  </script>
 </body>
 </html>
