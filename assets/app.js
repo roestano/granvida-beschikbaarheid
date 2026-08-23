@@ -9,7 +9,7 @@ const TIME_SLOTS = [
 const LOCATIONS = ['2e Braamstraat 6, Den Haag', 'Eekhoornrade 215, Den Haag'];
 
 // Vervang na Taak 3 door de echte Web App-URL (eindigt op /exec)
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMfuegP9oWTpNlRgoZZZnqOw28YLqWdIcvaAvSd9vu2rZ8ADyGZ2segPAxiVCvs19v/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzrgDyFtc3MUoWcuvii66ZZW9m-k-15n090cyvdTt8ZnIzNfGBASc6r19vBC6fSVWlP/exec';
 
 async function postAction(action, params) {
   const body = new URLSearchParams({ action, ...params });
