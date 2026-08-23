@@ -73,6 +73,7 @@
     let token = '';
     let allRows = [];
     let locatieFilter = '';
+    let locationUISetup = false;
     const selectedIds = new Set();
 
     function esc(s) {
@@ -90,6 +91,9 @@
     });
 
     document.getElementById('loginBtn').addEventListener('click', async () => {
+      const loginBtn = document.getElementById('loginBtn');
+      if (loginBtn.disabled) return; // voorkomt dubbelklik tijdens het inloggen
+      loginBtn.disabled = true;
       token = document.getElementById('tokenInput').value;
       const errorBox = document.getElementById('loginError');
       errorBox.innerHTML = '';
@@ -103,10 +107,13 @@
         render();
       } catch (err) {
         errorBox.innerHTML = '<div class="gv-error">Inloggen mislukt — controleer het token.</div>';
+        loginBtn.disabled = false;
       }
     });
 
     function setupLocationUI() {
+      if (locationUISetup) return; // idempotent: nooit chips/opties dubbel opbouwen
+      locationUISetup = true;
       const chips = document.getElementById('locatieChips');
       const select = document.getElementById('inviteLocatie');
       LOCATIONS.forEach(loc => {
