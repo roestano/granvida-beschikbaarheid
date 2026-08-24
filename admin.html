@@ -31,7 +31,11 @@
   <div class="admin-wrap" id="dashboardView" style="display:none;">
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <h1 class="gv-h1">Open inzendingen</h1>
-      <button class="gv-btn-secondary gv-btn" style="width:auto;" id="showInviteBtn">+ Nieuwe deelnemer uitnodigen</button>
+      <div style="display:flex;gap:10px;">
+        <button class="gv-btn-secondary gv-btn" style="width:auto;" id="refreshBtn" title="Data opnieuw ophalen">⟳ Ververs</button>
+        <button class="gv-btn-secondary gv-btn" style="width:auto;" id="showMailBtn">✉ Mail deelnemers</button>
+        <button class="gv-btn-secondary gv-btn" style="width:auto;" id="showInviteBtn">+ Nieuwe deelnemer uitnodigen</button>
+      </div>
     </div>
 
     <div id="inviteCard" class="gv-card" style="display:none;max-width:480px;">
@@ -42,6 +46,17 @@
       <select class="gv-input" id="inviteLocatie"></select>
       <button class="gv-btn" id="sendInviteBtn">Uitnodiging versturen</button>
       <div id="inviteError"></div>
+    </div>
+
+    <div id="mailCard" class="gv-card" style="display:none;max-width:520px;">
+      <div class="gv-h2">Mail naar deelnemers</div>
+      <p style="margin:0 0 4px;font-size:12.5px;color:#8a8070;">
+        Gaat naar iedereen in het huidige locatiefilter (<span id="mailScope">alle locaties</span>), elk apart geadresseerd.
+      </p>
+      <input class="gv-input" id="mailSubject" placeholder="Onderwerp">
+      <textarea class="gv-input" id="mailBody" rows="6" placeholder="Bericht..." style="resize:vertical;font-family:inherit;"></textarea>
+      <button class="gv-btn" id="sendMailBtn">Versturen</button>
+      <div id="mailError"></div>
     </div>
 
     <div style="display:flex;gap:10px;align-items:center;">
@@ -76,9 +91,56 @@
     let locationUISetup = false;
     const selectedIds = new Set();
 
+    // ===== Sessie-persistentie: blijf minimaal 10 minuten ingelogd, ook na browser-refresh =====
+    const SESSION_KEY = 'gv_admin_token';
+    const SESSION_TS_KEY = 'gv_admin_token_ts';
+    const SESSION_MAX_AGE_MS = 10 * 60 * 1000;
+
+    function saveSession(t) {
+      localStorage.setItem(SESSION_KEY, t);
+      localStorage.setItem(SESSION_TS_KEY, String(Date.now()));
+    }
+    function touchSession() {
+      if (token) localStorage.setItem(SESSION_TS_KEY, String(Date.now()));
+    }
+    function clearSession() {
+      localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_TS_KEY);
+    }
+    function loadSavedSession() {
+      const saved = localStorage.getItem(SESSION_KEY);
+      const ts = Number(localStorage.getItem(SESSION_TS_KEY) || 0);
+      if (!saved || !ts || (Date.now() - ts) > SESSION_MAX_AGE_MS) return null;
+      return saved;
+    }
+
+    function showDashboard(data) {
+      allRows = data.rows;
+      document.getElementById('loginView').style.display = 'none';
+      document.getElementById('dashboardView').style.display = 'flex';
+      setupLocationUI();
+      render();
+    }
+
+    async function tryAutoLogin() {
+      const saved = loadSavedSession();
+      if (!saved) return;
+      try {
+        const data = await getAdminData(saved);
+        if (!data.ok) { clearSession(); return; }
+        token = saved;
+        saveSession(token); // ververst de sessie-tijd bij elk bezoek
+        showDashboard(data);
+      } catch (err) {
+        // netwerkfout: sessie laten staan, gewoon het loginscherm tonen
+      }
+    }
+
     function esc(s) {
       return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
+
+    tryAutoLogin();
 
     document.getElementById('selectAllOpen').addEventListener('change', (ev) => {
       const openIds = filteredRows().filter(r => r.status === 'open').map(r => r.id);
@@ -100,14 +162,67 @@
       try {
         const data = await getAdminData(token);
         if (!data.ok) throw new Error('Ongeldig token');
-        allRows = data.rows;
-        document.getElementById('loginView').style.display = 'none';
-        document.getElementById('dashboardView').style.display = 'flex';
-        setupLocationUI();
-        render();
+        saveSession(token);
+        showDashboard(data);
       } catch (err) {
         errorBox.innerHTML = '<div class="gv-error">Inloggen mislukt — controleer het token.</div>';
         loginBtn.disabled = false;
+      }
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('refreshBtn');
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = 'Bezig...';
+      try {
+        const data = await getAdminData(token);
+        if (!data.ok) throw new Error(data.error || 'Onbekende fout');
+        touchSession();
+        allRows = data.rows;
+        render();
+      } catch (err) {
+        alert('Verversen mislukt: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    document.getElementById('showMailBtn').addEventListener('click', () => {
+      const card = document.getElementById('mailCard');
+      card.style.display = card.style.display === 'none' ? 'flex' : 'none';
+    });
+
+    document.getElementById('sendMailBtn').addEventListener('click', async () => {
+      const sendBtn = document.getElementById('sendMailBtn');
+      if (sendBtn.disabled) return;
+      const errorBox = document.getElementById('mailError');
+      errorBox.innerHTML = '';
+      const subject = document.getElementById('mailSubject').value.trim();
+      const body = document.getElementById('mailBody').value.trim();
+      if (!subject || !body) {
+        errorBox.innerHTML = '<div class="gv-error">Onderwerp en bericht zijn verplicht.</div>';
+        return;
+      }
+      const scopeLabel = locatieFilter ? locatieFilter.split(',')[0] : 'alle locaties';
+      if (!confirm(`Mail versturen naar iedereen in "${scopeLabel}"?`)) return;
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Versturen...';
+      try {
+        const result = await postAction('broadcastMail', { token, subject, body, locatie: locatieFilter });
+        if (!result.ok) throw new Error(result.error || 'Onbekende fout');
+        touchSession();
+        document.getElementById('mailSubject').value = '';
+        document.getElementById('mailBody').value = '';
+        document.getElementById('mailCard').style.display = 'none';
+        alert(`Mail verstuurd naar ${result.count} deelnemer(s).`);
+      } catch (err) {
+        errorBox.innerHTML = `<div class="gv-error">Versturen mislukt: ${err.message}</div>`;
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Versturen';
       }
     });
 
@@ -125,6 +240,7 @@
           document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
           chip.classList.add('active');
           selectedIds.clear();
+          document.getElementById('mailScope').textContent = loc.split(',')[0];
           render();
         });
         chips.appendChild(chip);
@@ -138,6 +254,7 @@
         document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
         this.classList.add('active');
         selectedIds.clear();
+        document.getElementById('mailScope').textContent = 'alle locaties';
         render();
       });
     }
@@ -165,6 +282,7 @@
       try {
         const result = await postAction('invite', { token, voornaam, achternaam, email, locatie });
         if (!result.ok) throw new Error(result.error);
+        touchSession();
         document.getElementById('inviteVoornaam').value = '';
         document.getElementById('inviteAchternaam').value = '';
         document.getElementById('inviteEmail').value = '';
@@ -221,6 +339,7 @@
           try {
             const result = await postAction('remind', { token, id: btn.dataset.remind });
             if (!result.ok) throw new Error(result.error || 'Onbekende fout');
+            touchSession();
             btn.textContent = 'Verzonden';
           } catch (err) {
             btn.textContent = 'Mislukt — probeer opnieuw';
@@ -286,6 +405,7 @@
       try {
         const result = await postAction('markAssigned', { token, ids: ids.join(',') });
         if (!result.ok) throw new Error(result.error || 'Onbekende fout');
+        touchSession();
         selectedIds.clear();
         const data = await getAdminData(token);
         allRows = data.rows;
