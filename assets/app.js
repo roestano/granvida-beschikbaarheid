@@ -8,6 +8,11 @@ const TIME_SLOTS = [
 
 const LOCATIONS = ['2e Braamstraat 6, Den Haag', 'Eekhoornrade 215, Den Haag'];
 
+// Leeg totdat de introvideo is opgenomen — het videoblok op de bedankpagina
+// blijft verborgen zolang dit leeg is. Zet hier de directe videobestand-URL
+// (bv. via Drive-gedeelde link naar een .mp4) zodra hij er is.
+const INTRO_VIDEO_URL = '';
+
 // Vervang na Taak 3 door de echte Web App-URL (eindigt op /exec)
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzrgDyFtc3MUoWcuvii66ZZW9m-k-15n090cyvdTt8ZnIzNfGBASc6r19vBC6fSVWlP/exec';
 

@@ -17,6 +17,7 @@
       border-radius: 20px; border: 1px solid #ddd4c2; background: #FFFFFF; cursor: pointer; }
     .chip.active { background: #221F1A; color: #FAF8F4; border-color: #221F1A; }
     .gv-btn-overdue { background: #C0392B !important; border-color: #C0392B !important; color: #FFFFFF !important; }
+    .gv-huddle-badge { display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:#FDF1EA;color:#E8592A; }
   </style>
 </head>
 <body>
@@ -70,7 +71,7 @@
     <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:24px;align-items:start;">
       <div class="gv-card" style="padding:0;">
         <table>
-          <thead><tr><th><input type="checkbox" id="selectAllOpen" title="Alles selecteren"></th><th>Naam</th><th>Locatie(s)</th><th>Status</th><th>Datum</th><th></th></tr></thead>
+          <thead><tr><th><input type="checkbox" id="selectAllOpen" title="Alles selecteren"></th><th>Naam</th><th>Locatie(s)</th><th>Status</th><th>Huddle</th><th>Datum</th><th></th></tr></thead>
           <tbody id="rowsBody"></tbody>
         </table>
       </div>
@@ -342,8 +343,11 @@
           ? `<button class="gv-btn-secondary gv-btn${overdueClass}" style="width:auto;padding:6px 12px;font-size:11.5px;" data-remind="${esc(r.id)}"${overdueTitle}>Stuur herinnering</button>`
           : '';
         const datum = r.status === 'uitgenodigd' ? r.timestamp_uitnodiging : r.invuldatum;
+        const huddleCell = r.opt_in_huddle_toegang === 'ja'
+          ? '<span class="gv-huddle-badge">Wil toegang</span>' : '';
         tr.innerHTML = `<td>${checkboxCell}</td><td style="font-weight:700;">${esc(r.voornaam)} ${esc(r.achternaam)}</td>
           <td>${esc(r.locaties || '')}</td><td><span class="${statusClass}">${statusLabel}</span></td>
+          <td>${huddleCell}</td>
           <td style="font-size:12px;color:#8a8070;">${formatDatum(datum)}</td><td>${actionCell}</td>`;
         tbody.appendChild(tr);
       });
@@ -372,8 +376,9 @@
 
       const uitgenodigd = allRows.filter(r => r.status === 'uitgenodigd').length;
       const open = allRows.filter(r => r.status === 'open').length;
+      const wilHuddle = allRows.filter(r => r.opt_in_huddle_toegang === 'ja').length;
       document.getElementById('statusSummary').textContent =
-        `${open} open · ${uitgenodigd} uitgenodigd · ${selectedIds.size} geselecteerd`;
+        `${open} open · ${uitgenodigd} uitgenodigd · ${wilHuddle} wil Huddle-toegang · ${selectedIds.size} geselecteerd`;
 
       const openInView = rows.filter(r => r.status === 'open');
       const selectAllCb = document.getElementById('selectAllOpen');

@@ -77,6 +77,31 @@
         genoeg mensen zijn op een moment dat ook voor jou past, plannen we een vaste maandelijkse sessie
         en nemen we contact met je op.
       </p>
+
+      <div id="introVideoBlock" style="display:none;width:100%;">
+        <div style="width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;background:#221F1A;">
+          <video id="introVideoEl" controls style="width:100%;height:100%;object-fit:cover;"></video>
+        </div>
+      </div>
+
+      <div style="width:100%;border-top:1px solid #ECE6DA;padding-top:18px;text-align:left;display:flex;flex-direction:column;gap:10px;">
+        <div class="gv-h2" style="margin:0;">Nu al beginnen?</div>
+        <p style="margin:0;font-size:13px;color:#4a4438;line-height:1.55;">
+          Je hoeft niet te wachten tot je groep start. Als GLI COOL-deelnemer heb je gratis toegang tot de
+          eerste lessen — vink aan en ik zet je persoonlijk klaar.
+        </p>
+        <label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer;">
+          <input type="checkbox" id="huddleCheckbox" style="margin-top:3px;">
+          <span style="font-size:13px;color:#4a4438;line-height:1.55;">
+            Ja, geef mij toegang tot de eerste GLI COOL-lessen.
+          </span>
+        </label>
+        <div id="huddleFeedback" style="display:none;align-items:center;gap:8px;font-size:12.5px;color:#3f6b3a;">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M4 7L6 9L10 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span id="huddleFeedbackText"></span>
+        </div>
+      </div>
+
       <label style="width:100%;border-top:1px solid #ECE6DA;padding-top:18px;display:flex;gap:12px;align-items:flex-start;text-align:left;cursor:pointer;">
         <input type="checkbox" id="optInCheckbox" style="margin-top:3px;">
         <span style="font-size:13px;color:#4a4438;line-height:1.55;">
@@ -176,10 +201,34 @@
         document.getElementById('confirmTitle').textContent = `Bedankt, ${form.voornaam.value}!`;
         document.getElementById('formView').style.display = 'none';
         document.getElementById('confirmView').style.display = 'flex';
+
+        // Video-blok blijft verborgen totdat er een echte opname is (zie assets/app.js)
+        if (typeof INTRO_VIDEO_URL !== 'undefined' && INTRO_VIDEO_URL) {
+          document.getElementById('introVideoEl').src = INTRO_VIDEO_URL;
+          document.getElementById('introVideoBlock').style.display = 'block';
+        }
       } catch (err) {
         errorBox.innerHTML = `<div class="gv-error">Het versturen is niet gelukt (${err.message}). Probeer het opnieuw, of mail rechtstreeks naar <a href="mailto:contact@granvida.nl">contact@granvida.nl</a>.</div>`;
         submitBtn.disabled = false;
         submitBtn.textContent = 'Versturen';
+      }
+    });
+
+    document.getElementById('huddleCheckbox').addEventListener('change', async (ev) => {
+      const feedback = document.getElementById('huddleFeedback');
+      const feedbackText = document.getElementById('huddleFeedbackText');
+      try {
+        const result = await postAction('huddleOptIn', { id: currentId, waarde: ev.target.checked ? 'ja' : 'nee' });
+        if (!result.ok) throw new Error(result.error || 'Onbekende fout');
+        feedback.style.color = '#3f6b3a';
+        feedbackText.textContent = ev.target.checked
+          ? 'Genoteerd — je krijgt persoonlijk bericht zodra je toegang hebt.'
+          : 'Voorkeur bijgewerkt.';
+        feedback.style.display = 'flex';
+      } catch (err) {
+        feedback.style.color = '#a3341f';
+        feedbackText.textContent = 'Opslaan is niet gelukt, probeer het nog eens.';
+        feedback.style.display = 'flex';
       }
     });
 
