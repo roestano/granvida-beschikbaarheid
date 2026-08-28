@@ -155,11 +155,23 @@
       });
     });
 
-    // Prefill vanuit uitnodigingslink
+    // Prefill vanuit uitnodigingslink. Oudere links bevatten naam/e-mail nog
+    // rechtstreeks als parameter; nieuwere links bevatten alleen ?id= en halen
+    // de gegevens op via actie 'lookup', zodat de link kort blijft.
     const form = document.getElementById('beschikbaarheidForm');
     if (params.get('voornaam')) form.voornaam.value = params.get('voornaam');
     if (params.get('achternaam')) form.achternaam.value = params.get('achternaam');
     if (params.get('email')) form.email.value = params.get('email');
+
+    if (currentId && !params.get('voornaam')) {
+      postAction('lookup', { id: currentId }).then(result => {
+        if (result.ok) {
+          form.voornaam.value = result.voornaam || '';
+          form.achternaam.value = result.achternaam || '';
+          form.email.value = result.email || '';
+        }
+      }).catch(() => {}); // stil falen — velden blijven dan gewoon leeg invulbaar
+    }
 
     form.addEventListener('submit', async (ev) => {
       ev.preventDefault();
