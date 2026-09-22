@@ -19,7 +19,16 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzrgDyFtc3MUoWc
 async function postAction(action, params) {
   const body = new URLSearchParams({ action, ...params });
   const res = await fetch(APPS_SCRIPT_URL, { method: 'POST', body });
-  return res.json();
+  try {
+    return await res.json();
+  } catch (e) {
+    // Apps Script voert de actie uit voordat het antwoord klaarstaat. Bij een trage
+    // actie (mail aan veel mensen) verloopt dat antwoord en komt er HTML terug,
+    // terwijl de actie meestal wel is uitgevoerd. Dus niet als "mislukt" melden.
+    const err = new Error('geen bevestiging van de server ontvangen. Mogelijk is het wel gelukt.');
+    err.unconfirmed = true;
+    throw err;
+  }
 }
 
 async function getAdminData(token) {

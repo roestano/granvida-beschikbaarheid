@@ -85,7 +85,7 @@
     </div>
   </div>
 
-  <script src="assets/app.js"></script>
+  <script src="assets/app.js?v=2"></script>
   <script>
     let token = '';
     let allRows = [];
@@ -239,7 +239,9 @@
         document.getElementById('mailCard').style.display = 'none';
         alert(`Mail verstuurd naar ${result.count} deelnemer(s).`);
       } catch (err) {
-        errorBox.innerHTML = `<div class="gv-error">Versturen mislukt: ${err.message}</div>`;
+        errorBox.innerHTML = err.unconfirmed
+          ? '<div class="gv-error">Geen bevestiging ontvangen, maar de mail is waarschijnlijk al verstuurd. Kijk eerst in je verzonden mail voordat je het opnieuw probeert.</div>'
+          : `<div class="gv-error">Versturen mislukt: ${err.message}</div>`;
       } finally {
         sendBtn.disabled = false;
         sendBtn.textContent = 'Versturen';
@@ -311,7 +313,9 @@
         allRows = data.rows;
         render();
       } catch (err) {
-        errorBox.innerHTML = `<div class="gv-error">Versturen mislukt: ${err.message}</div>`;
+        errorBox.innerHTML = err.unconfirmed
+          ? '<div class="gv-error">Geen bevestiging ontvangen, maar de mail is waarschijnlijk al verstuurd. Kijk eerst in je verzonden mail voordat je het opnieuw probeert.</div>'
+          : `<div class="gv-error">Versturen mislukt: ${err.message}</div>`;
       } finally {
         sendBtn.disabled = false;
         sendBtn.textContent = 'Uitnodiging versturen';
@@ -368,8 +372,13 @@
             btn.classList.remove('gv-btn-overdue'); // timestamp is net vernieuwd, dus niet meer 'te laat'
             btn.textContent = 'Verzonden';
           } catch (err) {
-            btn.textContent = 'Mislukt — probeer opnieuw';
-            btn.disabled = false;
+            if (err.unconfirmed) {
+              btn.textContent = 'Onbevestigd';
+              btn.title = 'Geen bevestiging ontvangen, maar de mail is waarschijnlijk al verstuurd. Kijk eerst in je verzonden mail voordat je het opnieuw probeert.';
+            } else {
+              btn.textContent = 'Mislukt — probeer opnieuw';
+              btn.disabled = false;
+            }
           }
         });
       });
